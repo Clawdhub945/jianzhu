@@ -52,12 +52,19 @@ def main():
         json.dumps([new_stuff], ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
     (out_dir / "build.json").write_text(
         json.dumps([new_build], ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
-    print(f"generated: {out_dir}\\stuff.json, build.json")
+
+    # 建造菜单按 tech.json（设施解锁表）过滤 —— 实测缺行则菜单不显示（日志取证：
+    # 101007 进了 stuff_dic/build_dic/子类型表，但 BuildMenuGroup 不装配）。
+    # tech_id=0 = 免科技直接可建（同小床 txt_id=200 行的格式）。
+    new_tech = {"txt_id": 200, "tech_id": 0, "facility_id": MOD_ID, "seed_id": "", "event_id": ""}
+    (out_dir / "tech.json").write_text(
+        json.dumps([new_tech], ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
+    print(f"generated: {out_dir}\\stuff.json, build.json, tech.json")
 
     if "--deploy" in sys.argv:
         dst = DEF_DEPLOY_DIR
         dst.mkdir(parents=True, exist_ok=True)
-        for f in ("stuff.json", "build.json"):
+        for f in ("stuff.json", "build.json", "tech.json"):
             shutil.copy2(out_dir / f, dst / f)
         print(f"deployed: {dst}")
 

@@ -31,6 +31,7 @@
     <Reference Include="UnityEngine.CoreModule" HintPath="$(GameDir)\BepInEx\interop\UnityEngine.CoreModule.dll" />
     <Reference Include="UnityEngine.IMGUIModule" HintPath="$(GameDir)\BepInEx\interop\UnityEngine.IMGUIModule.dll" />
     <Reference Include="UnityEngine.InputLegacyModule" HintPath="$(GameDir)\BepInEx\interop\UnityEngine.InputLegacyModule.dll" />
+    <Reference Include="UnityEngine.UI" HintPath="$(GameDir)\BepInEx\interop\UnityEngine.UI.dll" />
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent"

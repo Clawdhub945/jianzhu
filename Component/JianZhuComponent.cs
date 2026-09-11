@@ -24,6 +24,10 @@ public class JianZhuComponent : MonoBehaviour
     private const float PollInterval = 5f;
     private const int MaxPolls = 36; // 36 次 × 5 秒 = 最多轮询 3 分钟
 
+    // 进存档后的一次性菜单 dump（建造菜单缺大通铺的取证）
+    private bool _menuDumped;
+    private float _nextMenuDumpAt = 20f; // 读档一般在启动后几十秒，20s 起试
+
     // 最近一次轮询结果（面板展示用）
     private string _pluginsDir = "未获取";
     private bool? _inStuffDic;
@@ -63,6 +67,12 @@ public class JianZhuComponent : MonoBehaviour
                 _showPanel = !_showPanel;
             }
 
+            if (Time.time >= _nextMenuDumpAt)
+            {
+                _nextMenuDumpAt = Time.time + 10f;
+                TryDumpBuildMenu();
+            }
+
             if (!_pollStarted || _inStuffDic == true && _inBuildDic == true) return;
             if (Time.time < _nextPollAt) return;
             _nextPollAt = Time.time + PollInterval;
@@ -82,9 +92,81 @@ public class JianZhuComponent : MonoBehaviour
         }
     }
 
-    private void PollData()
+    /// <summary>
+    /// 建造菜单取证：dump 子类型 101 的 id 列表 + 场景内全部 BuildMenuGroup 实际装配的物品。
+    /// 目的：101007 在 stuff_dic/build_dic 里但建造菜单不显示，定位缺在哪一环。
+    /// </summary>
+    private void TryDumpBuildMenu()
     {
-        var d = D.Ins;
+        if (_menuDumped) return;
+
+        var groups = UnityEngine.Object.FindObjectsOfType<BuildMenuGroup>();
+        if (groups == null || groups.Length == 0) return; // 还没进存档/菜单未初始化
+
+        int totalItems = 0;
+        foreach (var g in groups)
+        {
+            if (g == null || g.items == null) continue;
+            totalItems += g.items.Count;
+        }
+        if (totalItems == 0) return; // 菜单组还没 SetInfo
+
+        _menuDumped = true;
+
+        // 1) 子类型 101 的注册表清单 + D.facility_list + C.build_menu_group_order
+        try
+        {
+            var d = D.Ins;
+            var subDic = d.stuff_id_list_of_sub_type_dic;
+            if (subDic != null && subDic.ContainsKey(101))
+            {
+                var list = subDic[101];
+                var ids = new List<int>();
+                for (int i = 0; i < list.Count; i++) ids.Add(list[i]);
+                Plugin.LogInfo($"[JianZhu] stuff_id_list_of_sub_type_dic[101] = [{string.Join(", ", ids)}]");
+            }
+            else
+            {
+                Plugin.LogWarning("[JianZhu] stuff_id_list_of_sub_type_dic 无 101 键");
+            }
+
+            var order = C.build_menu_group_order;
+            if (order != null)
+            {
+                var ids = new List<int>();
+                for (int i = 0; i < order.Count; i++) ids.Add(order[i]);
+                Plugin.LogInfo($"[JianZhu] C.build_menu_group_order = [{string.Join(", ", ids)}]");
+            }
+        }
+        catch (Exception ex)
+        {
+            Plugin.LogError($"[JianZhu] dump 子类型表失败: {ex.Message}");
+        }
+
+        // 2) 场景内 BuildMenuGroup 实际装配的物品（含 null 项的 GO 名/精灵名）
+        foreach (var g in groups)
+        {
+            if (g == null || g.items == null || g.items.Count == 0) continue;
+            var names = new List<string>();
+            foreach (var item in g.items)
+            {
+                if (item == null) continue;
+                if (item.stuff_info == null)
+                {
+                    var sprite = item.img_icon != null ? item.img_icon.sprite : null;
+                    names.Add($"NULL({item.name}|{item.gameObject.name}|sp={sprite?.name ?? "-"})");
+                }
+                else
+                {
+                    names.Add($"{item.stuff_info.stuff_id}:{item.stuff_info.stuff_name}");
+                }
+            }
+            Plugin.LogInfo($"[JianZhu] BuildMenuGroup '{g.name}' items({g.items.Count}) = [{string.Join("; ", names)}]");
+        }
+    }
+
+    private void PollData()
+    {        var d = D.Ins;
         if (d == null) return;
 
         var stuffDic = d.stuff_dic;

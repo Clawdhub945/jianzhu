@@ -23,6 +23,10 @@ D.LoadData()
   `prefab:"bed"` 原样保留 → 实例化小床预制体，贴图/模型天然复用。
 - `Defs/build.json`：101007 行，拷贝官方 build 表 101001 行。`cellw:1, cellh:2` 即 1×2 占地
   （小床本身就是 1×2）；`class_name:"FacilityBed"` 原样保留 → 行为与小床一致。
+- `Defs/tech.json`：**必需！** 建造菜单按 tech.json（设施解锁表）过滤，缺行则菜单不显示
+  （101007 照样进 stuff_dic/build_dic/子类型表，但 BuildMenuGroup 不装配，实机+日志取证）。
+  行格式照抄小床：`{"txt_id":200, "tech_id":0, "facility_id":101007}`（tech_id=0=免科技）。
+  排查这类问题用 JianZhu.dll 的菜单 dump 日志（stuff_id_list_of_sub_type_dic + BuildMenuGroup items）。
 
 由 `_tools/make_defs.py` 从 `C:\AI\领地部分源码(AI注释)\ExtraData` 的官方表生成（勿手编）。
 
@@ -48,18 +52,20 @@ python _tools/make_defs.py --deploy      # Defs → C:\TerritoryModTest\Defs
 - `--no-restore` 必须携带（无 NuGet 依赖；首次新项目需手动 `dotnet restore` 一次）。
 - 源文件 UTF-8 无 BOM + LF；typed interop（`D.Ins`、`ModsHelper` 等）仅用于诊断组件。
 
-## 验证记录（2026-09-12）
+## 验证记录（2026-09-12，实机读档）
 
 ```
-[Info: BepInEx] Loading [JianZhu 0.2.0]
-[Info: JianZhu] 游戏 Defs 根目录 = ...\Territory\BepInEx\plugins
 [Info: JianZhu] stuff_dic[101007] = 大通铺, effect_value=10, prefab=bed, img=bed_0
-[Info: JianZhu] ✓ 101007 已进表：stuff_dic(1835 项) + build_dic 均包含，Def 通道注入成功
+[Info: JianZhu] ✓ 101007 已进表：stuff_dic(1835 项) + build_dic 均包含
+[Info: JianZhu] stuff_id_list_of_sub_type_dic[101] = [101001,101002,101003,101004,101006,101007]
 ```
 
-待人工确认：进存档 → 建造菜单「家具」应出现「大通铺」（贴图同小床）→ 摆放 1×2 →
-分配居民睡觉（容量是否真到 10 人：床位容量消费点 `FacilityBed.OnNpcEnter` 不在反编译语料中，
-若实测卡 1 人再定位该函数打 Harmony 补丁）。
+- 建造菜单「住所」出现大通铺（贴图同小床），摆放信息：需建在(室内)、木 x10、可旋转（R）
+- 实际摆放 1×2 成功，日志通知"大通铺 建造完成"，设施窗口正常（居民分配页签同小床）
+- 建造快捷键 B；「菜单」按钮是系统菜单，别混
+
+待观察：居民自动分配是否真能睡满 10 人（床位容量消费点 `FacilityBed.OnNpcEnter`
+不在反编译语料中；effect_value=10 按数据表"可睡人数"语义设定，若实测卡 1 人再定位补丁）。
 
 ## 后续：全选建造 UI
 

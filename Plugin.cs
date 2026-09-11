@@ -13,7 +13,7 @@ public class Plugin : BasePlugin
 {
     public const string PLUGIN_GUID = "claude.jianzhu";
     public const string PLUGIN_NAME = "JianZhu";
-    public const string PLUGIN_VERSION = "0.1.0";
+    public const string PLUGIN_VERSION = "0.2.0";
 
     internal static ManualLogSource Logger = null!;
 
@@ -33,7 +33,7 @@ public class Plugin : BasePlugin
         go.hideFlags = HideFlags.HideAndDontSave;
         go.AddComponent<JianZhuComponent>();
 
-        LogInfo($"{PLUGIN_NAME} v{PLUGIN_VERSION} 已加载！按 F9 开关全选建造面板");
+        LogInfo($"{PLUGIN_NAME} v{PLUGIN_VERSION} 已加载！按 F9 开关大通铺状态面板");
     }
 
     internal static void LogInfo(string msg) => Logger.LogInfo(msg);

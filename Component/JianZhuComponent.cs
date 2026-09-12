@@ -301,8 +301,8 @@ public class JianZhuComponent : MonoBehaviour
         }
         catch (Exception ex) { Plugin.LogError($"[JianZhu] 空床池维护失败: {ex.Message}"); }
 
-        // ② 直接收容无房成年居民
-        if (openBeds.Count == 0) return;
+        // ② 直接收容无房成年居民（没有普通空位时跳过居民段，但旅客直配/腾床仍要跑）
+        if (openBeds.Count > 0)
         try
         {
             var npcs = UnityEngine.Object.FindObjectsOfType<Npc>();
@@ -315,20 +315,27 @@ public class JianZhuComponent : MonoBehaviour
                 if (npc.IsSpriteOrStoneMan()) continue;     // 精灵/石头人不收
                 if (!BedPatches.IsAllowedResidentType(npc)) continue; // 类型白名单（儿童特批，士兵/旅客/-11 等排除）
 
-                // 取人数最少且准入的床（同族、未满员、未设旅客专属——CanAccept 统一校验）
+                // 选床策略（紧凑填充防占坑）：优先"已有同族成员且最满"的床把人压实，
+                // 没有同族非空床才开新床（空床）。避免 1-3 人就锁死一张床。
                 FacilityBed? target = null;
-                int best = int.MaxValue;
+                int packedCount = -1;
+                FacilityBed? emptyBed = null;
                 foreach (var bed in openBeds)
                 {
                     if (!BedPatches.CanAccept(bed, npc, out _)) continue;
                     int c = BedPatches.MemberCount(bed);
-                    if (c < best) { best = c; target = bed; }
+                    if (c > 0)
+                    {
+                        if (c > packedCount) { packedCount = c; target = bed; }
+                    }
+                    else if (emptyBed == null) emptyBed = bed;
                 }
+                if (target == null) target = emptyBed;
                 if (target == null) continue; // 没有同族空位/仅剩旅客专属床
 
                 string name = "";
                 try { name = npc.npc_name ?? ""; } catch { }
-                Plugin.LogInfo($"[JianZhu] 收容无房居民「{name}」→ 大通铺({best}/{BedPatches.CapacityOf(target)})");
+                Plugin.LogInfo($"[JianZhu] 收容无房居民「{name}」→ 大通铺({BedPatches.MemberCount(target)}/{BedPatches.CapacityOf(target)})");
                 npc.EnterHouseFacility(target, false);
 
                 if (BedPatches.MemberCount(target) >= BedPatches.CapacityOf(target))
@@ -336,6 +343,57 @@ public class JianZhuComponent : MonoBehaviour
             }
         }
         catch (Exception ex) { Plugin.LogError($"[JianZhu] 收容分配失败: {ex.Message}"); }
+
+        // ②b 腾床合并（每轮最多 2 张）：某床只有 1-3 人占坑、且同族其他床装得下全员
+        //    → 整体搬过去，把这张床释放给其他种族（矮人等后来种族才有床用）
+        try
+        {
+            int consolidations = 0;
+            foreach (var bed in beds)
+            {
+                if (consolidations >= 2) break;
+                if (!BedPatches.IsDorm(bed)) continue;
+                bool tOnly = false;
+                try { tOnly = bed.IsForTravellerOnly; } catch { }
+                if (tOnly) continue;
+
+                var ms = bed.member_list;
+                if (ms == null || ms.Count == 0 || ms.Count > 3) continue;
+                var first = ms[0];
+                if (first == null) continue;
+                int raceId = first.race_id;
+
+                // 找同族且空闲位足够的床（排除自己）
+                FacilityBed? sink = null;
+                int sinkFree = 0;
+                foreach (var other in beds)
+                {
+                    if (other == bed || !BedPatches.IsDorm(other)) continue;
+                    bool ot = false;
+                    try { ot = other.IsForTravellerOnly; } catch { }
+                    if (ot) continue;
+                    var oms = other.member_list;
+                    if (oms == null || oms.Count == 0 || oms[0] == null || oms[0].race_id != raceId) continue;
+                    int free = BedPatches.CapacityOf(other) - oms.Count;
+                    if (free > sinkFree) { sinkFree = free; sink = other; }
+                }
+                if (sink == null || sinkFree < ms.Count) continue; // 装不下全员，不拆
+
+                // 整体搬移
+                string raceLog = $"race{raceId}";
+                Plugin.LogInfo($"[JianZhu] 腾床合并：bed={bed.guid}({ms.Count}人,{raceLog}) → bed={sink.guid}(余位{sinkFree})");
+                for (int i = ms.Count - 1; i >= 0; i--)
+                {
+                    var m = ms[i];
+                    if (m == null || m.is_dead) continue;
+                    m.ExitHouseFacility();
+                    if (BedPatches.CanAccept(sink, m, out _))
+                        m.EnterHouseFacility(sink, false);
+                }
+                consolidations++;
+            }
+        }
+        catch (Exception ex) { Plugin.LogError($"[JianZhu] 腾床合并失败: {ex.Message}"); }
 
         // ③ 旅客专属床直配：游戏只给旅店（接待台范围）分旅客，手工标记的床不在
         //    TravellerHelper.empty_bed_list 里永远不会来人——这里把没有床的旅客

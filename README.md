@@ -58,7 +58,10 @@ python _tools/make_defs.py --deploy      # Defs → C:\TerritoryModTest\Defs
 2. **Harmony 补丁 `IsNoNpcInHouse`**（仅 101007）：改为 `count < effect_value`（未满员=可分配）。
 3. **JianZhuComponent 每 3s 兜底**：未满员的大通铺放回 empty_bed_list 池尾（优先）；
    并把**无房居民**（`house_facility_guid==0`；**儿童(-2)与成年人同住允许**；
-   仍排除婴儿(-3)/学生(-1)/流民(-5)/旅客(-10,-12,-13)/贵族(61)/领主(70)）直接 `npc.EnterHouseFacility(bed, false)` 收进人数最少的床。
+   仍排除婴儿(-3)/学生(-1)/流民(-5)/贵族(61)/领主(70)）直接 `npc.EnterHouseFacility(bed, false)` 收进人数最少且同族的床。
+4. **旅客专属分流（0.4.2）**：按床的 `IsForTravellerOnly` 双向限制——未设"仅限旅客"的床
+   不收旅客（-10/-12/-13）；设了专属的床只收旅客、不收居民。接待台范围内新建的床会被
+   游戏自动标记为旅客专属。
 
 实机验证（最新档 `2026-09-12_14_*`）：无房 NPC 依次入住，名册 0→10 正常增长（日志 41 次 OnNpcEnter）。
 容量读取 `facility_stuff_info.effect_value_int`（=10），改 Defs 即可调床位数。

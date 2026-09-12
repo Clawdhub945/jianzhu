@@ -58,10 +58,10 @@ internal static class BedPatches
         catch { return false; }
     }
 
-    /// <summary>普通居民类型白名单：儿童(-2)特批 + 游戏自己的谓词
-    /// IsPeople_NotElf_NotNoble_NotSoldier_NotPrisoner（自动排除士兵 1001-1900、
-    /// 贵族 61、领主 70、特殊 23/25/30、以及 -5 以下的全部负数特殊类型——
-    /// 旅客/商队/-11 等一并挡掉）。再显式排除婴儿(-3)/学生(-1)。</summary>
+    /// <summary>普通居民类型白名单：儿童(-2)特批 + 士兵放行（游戏设计里士兵由兵营
+    /// 绑床流程 HousingHelper.MoveNpcToThisBedBindToWorkFacility 分配合法床位）+
+    /// 游戏谓词 IsPeople_NotElf_NotNoble_NotSoldier_NotPrisoner（自动排除贵族/领主/
+    /// 商队/-11 等特殊负数类型）。再显式排除婴儿(-3)/学生(-1)。</summary>
     internal static bool IsAllowedResidentType(Npc npc)
     {
         try
@@ -69,6 +69,7 @@ internal static class BedPatches
             int t = npc._npc_type;
             if (t == -2) return true;             // 儿童允许与成年人同住
             if (t == -3 || t == -1) return false; // 婴儿/学生
+            if (NpcType.IsSoldier(t)) return true; // 士兵(1001-1900)：兵营绑床的合法住户
             return NpcType.IsPeople_NotElf_NotNoble_NotSoldier_NotPrisoner(t);
         }
         catch { return false; }

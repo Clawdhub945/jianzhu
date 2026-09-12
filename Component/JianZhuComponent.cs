@@ -28,7 +28,7 @@ public class JianZhuComponent : MonoBehaviour
     private bool _menuDumped;
     private float _nextMenuDumpAt = 20f; // 读档一般在启动后几十秒，20s 起试
 
-    // 大通铺床池兜底刷新（每 3s）：未满员的大通铺必须留在 HousingHelper.empty_bed_list 里
+    // 大通铺床位服务（每 1.5s）：空床池兜底 + 无房居民/旅客直接收容 + 名册 dump
     private float _nextPoolAt;
     private readonly List<string> _dormStatus = new();
     private float _nextRosterAt;
@@ -80,7 +80,7 @@ public class JianZhuComponent : MonoBehaviour
 
             if (Time.time >= _nextPoolAt)
             {
-                _nextPoolAt = Time.time + 3f;
+                _nextPoolAt = Time.time + 1.5f;
                 RefreshDormPool();
             }
 
@@ -189,6 +189,7 @@ public class JianZhuComponent : MonoBehaviour
 
         _dormStatus.Clear();
         var openBeds = new List<FacilityBed>();
+        var openTravellerBeds = new List<FacilityBed>();
         foreach (var bed in beds)
         {
             if (!BedPatches.IsDorm(bed)) continue;
@@ -230,7 +231,9 @@ public class JianZhuComponent : MonoBehaviour
             }
             catch { }
             _dormStatus.Add($"{cnt}/{cap}{raceStr}{(travellerOnly ? "[旅]" : "")}");
-            if (cnt < cap && !travellerOnly) openBeds.Add(bed); // 专属床不参与居民收容
+            // 专属床不参与居民收容（留给旅客直配），普通床未满员参与
+            if (cnt < cap && !travellerOnly) openBeds.Add(bed);
+            if (cnt < cap && travellerOnly) openTravellerBeds.Add(bed);
         }
 
         // 诊断：名册 dump（30s 一次），乱入住一眼可见
@@ -280,12 +283,14 @@ public class JianZhuComponent : MonoBehaviour
                         changed = true;
                     }
                 }
-                // 满员/消失的床从池里摘除
+                // 满员/消失的床从池里摘除；旅客专属床不进居民池（居民分配会不停撞墙）
                 for (int i = pool.Count - 1; i >= 0; i--)
                 {
                     var it = pool[i];
                     if (it == null || !BedPatches.IsDorm(it)) continue;
-                    if (BedPatches.MemberCount(it) >= BedPatches.CapacityOf(it))
+                    bool tOnly = false;
+                    try { tOnly = it.IsForTravellerOnly; } catch { }
+                    if (tOnly || BedPatches.MemberCount(it) >= BedPatches.CapacityOf(it))
                     {
                         pool.RemoveAt(i);
                         changed = true;
@@ -331,6 +336,46 @@ public class JianZhuComponent : MonoBehaviour
             }
         }
         catch (Exception ex) { Plugin.LogError($"[JianZhu] 收容分配失败: {ex.Message}"); }
+
+        // ③ 旅客专属床直配：游戏只给旅店（接待台范围）分旅客，手工标记的床不在
+        //    TravellerHelper.empty_bed_list 里永远不会来人——这里把没有床的旅客
+        //    直接送进未满员的旅客专属大通铺（EnterHouseFacility 标准入口）。
+        if (openTravellerBeds.Count > 0)
+        {
+            try
+            {
+                var npcs = UnityEngine.Object.FindObjectsOfType<Npc>();
+                if (npcs != null)
+                {
+                    foreach (var npc in npcs)
+                    {
+                        if (openTravellerBeds.Count == 0) break;
+                        if (npc == null || npc.is_dead) continue;
+                        if (npc.house_facility_guid != 0) continue; // 已有床位
+                        if (!BedPatches.IsTraveller(npc)) continue;
+
+                        FacilityBed? target = null;
+                        int best = int.MaxValue;
+                        foreach (var bed in openTravellerBeds)
+                        {
+                            if (!BedPatches.CanAccept(bed, npc, out _)) continue;
+                            int c = BedPatches.MemberCount(bed);
+                            if (c < best) { best = c; target = bed; }
+                        }
+                        if (target == null) break;
+
+                        string name = "";
+                        try { name = npc.npc_name ?? ""; } catch { }
+                        Plugin.LogInfo($"[JianZhu] 旅客「{name}」入住旅客专属大通铺({best}/{BedPatches.CapacityOf(target)})");
+                        npc.EnterHouseFacility(target, false);
+
+                        if (BedPatches.MemberCount(target) >= BedPatches.CapacityOf(target))
+                            openTravellerBeds.Remove(target);
+                    }
+                }
+            }
+            catch (Exception ex) { Plugin.LogError($"[JianZhu] 旅客直配失败: {ex.Message}"); }
+        }
     }
 
     /// <summary> HousingHelper 是普通类（非 MonoBehaviour），走 Game.main_scene → area_map → my_territory → housing_helper </summary>

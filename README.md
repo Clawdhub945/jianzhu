@@ -64,6 +64,9 @@ python _tools/make_defs.py --deploy      # Defs → C:\TerritoryModTest\Defs
 4. **旅客专属分流（0.4.2）**：按床的 `IsForTravellerOnly` 双向限制——未设"仅限旅客"的床
    不收旅客（-10/-12/-13）；设了专属的床只收旅客、不收居民。接待台范围内新建的床会被
    游戏自动标记为旅客专属。
+5. **0.5.0 增补**：士兵(1001-1900)放行（兵营绑床流程的合法住户）；旅客专属床由组件
+   直接给无床旅客办理入住（手工标记的床不在 TravellerHelper 池里，游戏不会派旅客来）；
+   服务循环 3s→1.5s。
 
 实机验证（最新档 `2026-09-12_14_*`）：无房 NPC 依次入住，名册 0→10 正常增长（日志 41 次 OnNpcEnter）。
 容量读取 `facility_stuff_info.effect_value_int`（=10），改 Defs 即可调床位数。

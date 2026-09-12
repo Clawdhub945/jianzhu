@@ -272,7 +272,10 @@ public class JianZhuComponent : MonoBehaviour
                 if (npc.house_facility_guid != 0) continue; // 已有住房
                 if (npc.IsSpriteOrStoneMan()) continue;     // 精灵/石头人不收
                 int t = npc._npc_type;
-                if (t < 0 || t == 61 || t == 70) continue;  // 跳过 婴儿/学生/旅客/流民/贵族/领主 等
+                // 儿童(-2)允许与成年人同住大通铺；仍排除：婴儿(-3)/学生(-1)/流民(-5)/
+                // 旅客(-10,-12,-13)/贵族(61)/领主(70)，其余负数类型一并排除
+                if (t == -3 || t == -1 || t == -5 || t == -10 || t == -12 || t == -13
+                    || t == 61 || t == 70) continue;
 
                 // 取人数最少且同族的床（一张床只能住同一个种族）
                 FacilityBed? target = null;

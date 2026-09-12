@@ -63,9 +63,9 @@ internal static class BedPatches
     }
 }
 
-/// <summary>入住闸门：大通铺容量内（且 npc 存活）强制收下，绕过家庭/数量限制。
-/// ⚠ 原版 OnNpcEnter 负责 member_list.Add 等簿记，prefix 必须自己补记成员，
-/// 否则 NPC 拿到 facility_bed 但床名册恒 0（0.3.0 实测教训）。</summary>
+/// <summary>入住闸门：大通铺容量内强制收下，绕过家庭/数量限制。儿童(-2)与成年人
+/// 同住允许；精灵/石头人/异族拒绝。⚠ 原版 OnNpcEnter 负责 member_list.Add 等簿记，
+/// prefix 必须自己补记成员，否则 NPC 拿到 facility_bed 但床名册恒 0（0.3.0 实测教训）。</summary>
 [HarmonyPatch(typeof(FacilityBed), nameof(FacilityBed.OnNpcEnter))]
 internal static class BedOnNpcEnterPatch
 {

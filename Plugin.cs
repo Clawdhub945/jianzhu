@@ -13,13 +13,14 @@ public class Plugin : BasePlugin
 {
     public const string PLUGIN_GUID = "claude.jianzhu";
     public const string PLUGIN_NAME = "JianZhu";
-    public const string PLUGIN_VERSION = "0.6.2";
+    public const string PLUGIN_VERSION = "0.7.0";
 
     internal static ManualLogSource Logger = null!;
 
     private HarmonyLib.Harmony? _harmony;
     internal static BepInEx.Configuration.ConfigFile? DormConfigFile;
     internal static BepInEx.Configuration.ConfigEntry<int>? CapacityEntry;
+    internal static BepInEx.Configuration.ConfigEntry<bool>? VerboseEntry;
 
     public override void Load()
     {
@@ -47,6 +48,11 @@ public class Plugin : BasePlugin
             BedPatches.AllowPigAntRatEntry = allowSpecial;
             allowSpecial.SettingChanged += (_, _) =>
                 LogInfo($"[JianZhu] 种族限制变更 → 猪人/蚁人/鼠人睡床 {(allowSpecial.Value ? "允许" : "禁止")}");
+
+            // 日志详细模式：默认关（工坊用户控制台安静），开cfg后才输出收容/名册/腾床等诊断日志
+            VerboseEntry = Config.Bind("调试", "日志详细模式", false,
+                new BepInEx.Configuration.ConfigDescription(
+                    "默认 false=安静模式（仅关键事件与错误）。改为 true 输出收容/名册/腾床/拒绝等详细诊断日志。"));
 
             LogInfo($"[JianZhu] 容量配置: 每床 {CapacityEntry.Value} 人, 猪人/蚁人/鼠人睡床 {(allowSpecial.Value ? "允许" : "禁止")} (BepInEx/config/claude.jianzhu.cfg)");
         }
@@ -77,4 +83,12 @@ public class Plugin : BasePlugin
     internal static void LogInfo(string msg) => Logger.LogInfo(msg);
     internal static void LogWarning(string msg) => Logger.LogWarning(msg);
     internal static void LogError(string msg) => Logger.LogError(msg);
+
+    /// <summary>诊断日志：仅 cfg「调试.日志详细模式」=true 时输出（Config.Reload 热生效）</summary>
+    internal static void LogV(string msg)
+    {
+        try { if (VerboseEntry != null && !VerboseEntry.Value) return; }
+        catch { }
+        Logger.LogInfo(msg);
+    }
 }

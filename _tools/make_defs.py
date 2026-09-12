@@ -35,7 +35,12 @@ def main():
     new_stuff["effect_value"] = float(SLEEP_COUNT)
     new_stuff["stuff_namezh-CN"] = NAME
     new_stuff["desczh-CN"] = DESC
-    # prefab/stuff_img/stuff_img_on_map 保持 "bed"/"ui_101001"/"bed_0" —— 贴图直接复用小床
+    # 0.7.0 换造型：prefab 用官方废案 bunk_bed（101005 同款，预制体仍在游戏资源里，
+    # FacilityBunkBed 只重写 ctor/UpdateSprite，入住闸门等继承 FacilityBed → 补丁仍生效）；
+    # 地图贴图随预制体走 bunk_bed_*；图标用 mod Textures 新增的自绘 ui_101007
+    new_stuff["prefab"] = "bunk_bed"
+    new_stuff["stuff_img"] = "ui_101007"
+    new_stuff["stuff_img_on_map"] = "bunk_bed_0"
 
     src_build = next(r for r in build if r.get("id") == 101001)
     new_build = dict(src_build)
@@ -66,7 +71,13 @@ def main():
         dst.mkdir(parents=True, exist_ok=True)
         for f in ("stuff.json", "build.json", "tech.json"):
             shutil.copy2(out_dir / f, dst / f)
-        print(f"deployed: {dst}")
+        # Textures（图标 mod 贴图）：游戏 ModTextureHelper.LoadSpriteOfMod 扫描
+        # plugins/<mod>/Textures/textures.xml，sprite 名 = 文件名去扩展名
+        tex_dst = TEST_DIR / "Textures"
+        tex_dst.mkdir(parents=True, exist_ok=True)
+        for f in ("textures.xml", "ui_101007.png"):
+            shutil.copy2(REPO / "Textures" / f, tex_dst / f)
+        print(f"deployed: {dst} + {tex_dst}")
 
 
 if __name__ == "__main__":

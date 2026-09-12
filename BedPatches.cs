@@ -169,7 +169,7 @@ internal static class BedOnNpcEnterPatch
             try
             {
                 string name = npc != null ? npc.npc_name : "null";
-                JianZhu.Plugin.LogInfo($"[JianZhu] 拒绝「{name}」入住大通铺: {reason}");
+                JianZhu.Plugin.LogV($"[JianZhu] 拒绝「{name}」入住大通铺: {reason}");
             }
             catch { }
             __result = false;

@@ -52,7 +52,7 @@ public class JianZhuComponent : MonoBehaviour
         try
         {
             _pluginsDir = ModsHelper.GetPluginsDir();
-            Plugin.LogInfo($"[JianZhu] 游戏 Defs 根目录 = {_pluginsDir}");
+            Plugin.LogV($"[JianZhu] 游戏 Defs 根目录 = {_pluginsDir}");
         }
         catch (Exception ex)
         {
@@ -136,7 +136,7 @@ public class JianZhuComponent : MonoBehaviour
                 var list = subDic[101];
                 var ids = new List<int>();
                 for (int i = 0; i < list.Count; i++) ids.Add(list[i]);
-                Plugin.LogInfo($"[JianZhu] stuff_id_list_of_sub_type_dic[101] = [{string.Join(", ", ids)}]");
+                Plugin.LogV($"[JianZhu] stuff_id_list_of_sub_type_dic[101] = [{string.Join(", ", ids)}]");
             }
             else
             {
@@ -148,7 +148,7 @@ public class JianZhuComponent : MonoBehaviour
             {
                 var ids = new List<int>();
                 for (int i = 0; i < order.Count; i++) ids.Add(order[i]);
-                Plugin.LogInfo($"[JianZhu] C.build_menu_group_order = [{string.Join(", ", ids)}]");
+                Plugin.LogV($"[JianZhu] C.build_menu_group_order = [{string.Join(", ", ids)}]");
             }
         }
         catch (Exception ex)
@@ -174,7 +174,7 @@ public class JianZhuComponent : MonoBehaviour
                     names.Add($"{item.stuff_info.stuff_id}:{item.stuff_info.stuff_name}");
                 }
             }
-            Plugin.LogInfo($"[JianZhu] BuildMenuGroup '{g.name}' items({g.items.Count}) = [{string.Join("; ", names)}]");
+            Plugin.LogV($"[JianZhu] BuildMenuGroup '{g.name}' items({g.items.Count}) = [{string.Join("; ", names)}]");
         }
     }
 
@@ -217,7 +217,7 @@ public class JianZhuComponent : MonoBehaviour
                                             : (!BedPatches.IsAllowedResidentType(m)            // 普通床只留白名单居民
                                                || BedPatches.IsTraveller(m)));
                         if (!mismatch) continue;
-                        Plugin.LogInfo($"[JianZhu] 清退错配成员「{m.npc_name}」(type={m._npc_type}, 专属={travellerOnly})");
+                        Plugin.LogV($"[JianZhu] 清退错配成员「{m.npc_name}」(type={m._npc_type}, 专属={travellerOnly})");
                         m.ExitHouseFacility();
                     }
                 }
@@ -259,7 +259,7 @@ public class JianZhuComponent : MonoBehaviour
                     }
                     bool tOnly = false;
                     try { tOnly = bed.IsForTravellerOnly; } catch { }
-                    Plugin.LogInfo($"[JianZhu] 名册 bed={bed.guid}{(tOnly ? "[旅]" : "")}: {string.Join(", ", roster)}");
+                    Plugin.LogV($"[JianZhu] 名册 bed={bed.guid}{(tOnly ? "[旅]" : "")}: {string.Join(", ", roster)}");
                 }
             }
             catch (Exception ex) { Plugin.LogError($"[JianZhu] 名册 dump 失败: {ex.Message}"); }
@@ -299,7 +299,7 @@ public class JianZhuComponent : MonoBehaviour
                         changed = true;
                     }
                 }
-                if (changed) Plugin.LogInfo($"[JianZhu] 空床池维护完成，当前 {pool.Count} 项");
+                if (changed) Plugin.LogV($"[JianZhu] 空床池维护完成，当前 {pool.Count} 项");
             }
         }
         catch (Exception ex) { Plugin.LogError($"[JianZhu] 空床池维护失败: {ex.Message}"); }
@@ -330,7 +330,7 @@ public class JianZhuComponent : MonoBehaviour
                     if (BedPatches.IsMember(bedOwner, npc)) continue;
                     string nm = "";
                     try { nm = npc.npc_name ?? ""; } catch { }
-                    Plugin.LogInfo($"[JianZhu] 脱钩修复：「{nm}」guid→bed{g} 但名册无此人，清 guid 重新分配");
+                    Plugin.LogV($"[JianZhu] 脱钩修复：「{nm}」guid→bed{g} 但名册无此人，清 guid 重新分配");
                     npc.house_facility_guid = 0;
                 }
             }
@@ -369,7 +369,7 @@ public class JianZhuComponent : MonoBehaviour
 
                 string name = "";
                 try { name = npc.npc_name ?? ""; } catch { }
-                Plugin.LogInfo($"[JianZhu] 收容无房居民「{name}」→ 大通铺({BedPatches.MemberCount(target)}/{BedPatches.CapacityOf(target)})");
+                Plugin.LogV($"[JianZhu] 收容无房居民「{name}」→ 大通铺({BedPatches.MemberCount(target)}/{BedPatches.CapacityOf(target)})");
                 npc.EnterHouseFacility(target, false);
 
                 if (BedPatches.MemberCount(target) >= BedPatches.CapacityOf(target))
@@ -415,7 +415,7 @@ public class JianZhuComponent : MonoBehaviour
 
                 // 整体搬移
                 string raceLog = $"race{raceId}";
-                Plugin.LogInfo($"[JianZhu] 腾床合并：bed={bed.guid}({ms.Count}人,{raceLog}) → bed={sink.guid}(余位{sinkFree})");
+                Plugin.LogV($"[JianZhu] 腾床合并：bed={bed.guid}({ms.Count}人,{raceLog}) → bed={sink.guid}(余位{sinkFree})");
                 for (int i = ms.Count - 1; i >= 0; i--)
                 {
                     var m = ms[i];
@@ -455,7 +455,7 @@ public class JianZhuComponent : MonoBehaviour
 
                     string name = "";
                     try { name = npc.npc_name ?? ""; } catch { }
-                    Plugin.LogInfo($"[JianZhu] 旅客「{name}」入住旅客专属大通铺({best}/{BedPatches.CapacityOf(target)})");
+                    Plugin.LogV($"[JianZhu] 旅客「{name}」入住旅客专属大通铺({best}/{BedPatches.CapacityOf(target)})");
                     npc.EnterHouseFacility(target, false);
 
                     if (BedPatches.MemberCount(target) >= BedPatches.CapacityOf(target))
@@ -543,7 +543,7 @@ public class JianZhuComponent : MonoBehaviour
             GUILayout.Label($"名字: {_stuffName}");
         }
         GUILayout.Space(6);
-        GUILayout.Label("在建造菜单「住所」分类的「大通铺」（贴图同小床）");
+        GUILayout.Label("在建造菜单「住所」分类的「大通铺」（双层床造型，图标为像素小床）");
         GUILayout.Label($"每床容量: {BedPatches.CapacityOf(null)} 人 (config/claude.jianzhu.cfg)");
         GUILayout.Label(_dormStatus.Count > 0
             ? "大通铺入住: " + string.Join(", ", _dormStatus)

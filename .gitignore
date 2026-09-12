@@ -8,3 +8,5 @@ obj/
 # ===== 调试临时产物 =====
 *_tmp.json
 *.log
+img/
+ui_101001.png

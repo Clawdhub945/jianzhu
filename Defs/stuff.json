@@ -14,7 +14,7 @@
     "effect_value": 10.0,
     "remark": "可睡人数",
     "prefab": "bunk_bed",
-    "stuff_img": "ui_101007",
+    "stuff_img": "ui_101005",
     "stuff_img_on_map": "bunk_bed_0",
     "weight": 1.0,
     "reward_count_once": 0,

@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Textures>
-  <!-- 大通铺自绘图标：sprite 名 = 文件名去扩展名(ui_101007)，Defs stuff_img 引用 -->
-  <Image file="ui_101007.png" action="add" anchor="0.5,0.5" />
-</Textures>

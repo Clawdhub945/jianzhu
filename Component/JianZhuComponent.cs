@@ -543,7 +543,7 @@ public class JianZhuComponent : MonoBehaviour
             GUILayout.Label($"名字: {_stuffName}");
         }
         GUILayout.Space(6);
-        GUILayout.Label("在建造菜单「住所」分类的「大通铺」（双层床造型，图标为像素小床）");
+        GUILayout.Label("在建造菜单「住所」分类的「大通铺」（双层床造型与图标）");
         GUILayout.Label($"每床容量: {BedPatches.CapacityOf(null)} 人 (config/claude.jianzhu.cfg)");
         GUILayout.Label(_dormStatus.Count > 0
             ? "大通铺入住: " + string.Join(", ", _dormStatus)

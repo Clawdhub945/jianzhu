@@ -28,6 +28,10 @@ public class JianZhuComponent : MonoBehaviour
     private bool _menuDumped;
     private float _nextMenuDumpAt = 20f; // 读档一般在启动后几十秒，20s 起试
 
+    // 大通铺床池兜底刷新（每 3s）：未满员的大通铺必须留在 HousingHelper.empty_bed_list 里
+    private float _nextPoolAt;
+    private readonly List<string> _dormStatus = new();
+
     // 最近一次轮询结果（面板展示用）
     private string _pluginsDir = "未获取";
     private bool? _inStuffDic;
@@ -71,6 +75,12 @@ public class JianZhuComponent : MonoBehaviour
             {
                 _nextMenuDumpAt = Time.time + 10f;
                 TryDumpBuildMenu();
+            }
+
+            if (Time.time >= _nextPoolAt)
+            {
+                _nextPoolAt = Time.time + 3f;
+                RefreshDormPool();
             }
 
             if (!_pollStarted || _inStuffDic == true && _inBuildDic == true) return;
@@ -165,6 +175,124 @@ public class JianZhuComponent : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 大通铺收容：每 3s 一轮。
+    /// ① 空床池兜底：未满员的大通铺保证在 HousingHelper.empty_bed_list 池尾（优先被分配）。
+    /// ② 直接分配：实测居民选床不走该池（无房者常被其他床接走），这里把无房成年居民
+    ///    直接送进未满员的大通铺（npc.EnterHouseFacility → 补丁后的 OnNpcEnter 记名册）。
+    /// </summary>
+    private void RefreshDormPool()
+    {
+        var beds = UnityEngine.Object.FindObjectsOfType<FacilityBed>();
+        if (beds == null) return;
+
+        _dormStatus.Clear();
+        var openBeds = new List<FacilityBed>();
+        foreach (var bed in beds)
+        {
+            if (!BedPatches.IsDorm(bed)) continue;
+            int cnt = BedPatches.MemberCount(bed);
+            int cap = BedPatches.CapacityOf(bed);
+            _dormStatus.Add($"{cnt}/{cap}");
+            if (cnt < cap) openBeds.Add(bed);
+        }
+
+        // ① 空床池兜底 + 置尾优先
+        try
+        {
+            var helper = GetHousingHelper();
+            var pool = helper?.empty_bed_list;
+            if (pool != null)
+            {
+                bool changed = false;
+                foreach (var bed in openBeds)
+                {
+                    int idx = IndexInPool(pool, bed);
+                    if (idx >= 0)
+                    {
+                        if (idx != pool.Count - 1) { pool.RemoveAt(idx); pool.Add(bed); changed = true; }
+                    }
+                    else
+                    {
+                        pool.Add(bed);
+                        changed = true;
+                    }
+                }
+                // 满员/消失的床从池里摘除
+                for (int i = pool.Count - 1; i >= 0; i--)
+                {
+                    var it = pool[i];
+                    if (it == null || !BedPatches.IsDorm(it)) continue;
+                    if (BedPatches.MemberCount(it) >= BedPatches.CapacityOf(it))
+                    {
+                        pool.RemoveAt(i);
+                        changed = true;
+                    }
+                }
+                if (changed) Plugin.LogInfo($"[JianZhu] 空床池维护完成，当前 {pool.Count} 项");
+            }
+        }
+        catch (Exception ex) { Plugin.LogError($"[JianZhu] 空床池维护失败: {ex.Message}"); }
+
+        // ② 直接收容无房成年居民
+        if (openBeds.Count == 0) return;
+        try
+        {
+            var npcs = UnityEngine.Object.FindObjectsOfType<Npc>();
+            if (npcs == null) return;
+            foreach (var npc in npcs)
+            {
+                if (openBeds.Count == 0) break;
+                if (npc == null || npc.is_dead) continue;
+                if (npc.house_facility_guid != 0) continue; // 已有住房
+                int t = npc._npc_type;
+                if (t < 0 || t == 61 || t == 70) continue;  // 跳过 婴儿/学生/旅客/流民/贵族/领主 等
+
+                // 取人数最少的一张床（均衡入住）
+                FacilityBed? target = null;
+                int best = int.MaxValue;
+                foreach (var bed in openBeds)
+                {
+                    int c = BedPatches.MemberCount(bed);
+                    if (c < best) { best = c; target = bed; }
+                }
+                if (target == null) break;
+
+                string name = "";
+                try { name = npc.npc_name ?? ""; } catch { }
+                Plugin.LogInfo($"[JianZhu] 收容无房居民「{name}」→ 大通铺({best}/{BedPatches.CapacityOf(target)})");
+                npc.EnterHouseFacility(target, false);
+
+                if (BedPatches.MemberCount(target) >= BedPatches.CapacityOf(target))
+                    openBeds.Remove(target);
+            }
+        }
+        catch (Exception ex) { Plugin.LogError($"[JianZhu] 收容分配失败: {ex.Message}"); }
+    }
+
+    /// <summary> HousingHelper 是普通类（非 MonoBehaviour），走 Game.main_scene → area_map → my_territory → housing_helper </summary>
+    private static HousingHelper? GetHousingHelper()
+    {
+        try
+        {
+            var ms = Game.main_scene;
+            var am = ms?.area_map;
+            var territory = am?.my_territory;
+            return territory?.housing_helper;
+        }
+        catch { return null; }
+    }
+
+    private static int IndexInPool(Il2CppSystem.Collections.Generic.List<FacilityBed> pool, FacilityBed bed)
+    {
+        for (int i = 0; i < pool.Count; i++)
+        {
+            var item = pool[i];
+            if (item == bed) return i; // interop == 按底层指针比较
+        }
+        return -1;
+    }
+
     private void PollData()
     {        var d = D.Ins;
         if (d == null) return;
@@ -219,7 +347,10 @@ public class JianZhuComponent : MonoBehaviour
             GUILayout.Label($"名字: {_stuffName}");
         }
         GUILayout.Space(6);
-        GUILayout.Label("在建造菜单「家具」分类应出现「大通铺」（贴图同小床）");
+        GUILayout.Label("在建造菜单「住所」分类的「大通铺」（贴图同小床）");
+        GUILayout.Label(_dormStatus.Count > 0
+            ? "大通铺入住: " + string.Join(", ", _dormStatus)
+            : "场上暂无大通铺");
         if (GUILayout.Button("关闭 (F9)"))
         {
             _showPanel = false;

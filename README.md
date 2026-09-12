@@ -47,7 +47,28 @@ python _tools/make_defs.py --deploy      # Defs → C:\TerritoryModTest\Defs
 - ⚠ 不要自建 `plugins/<自命名夹>`：会被启动同步清掉（实测 `plugins/JianZhu` 被删）。
 - 游戏必须**重启**才加载新 DLL/Defs（LoadData 在启动时跑）。
 
-## 构建注意
+## 多人床位 DLL 补丁（v0.3.0，BedPatches.cs）
+
+原版床位是**家庭单位**：`FacilityBed.OnNpcEnter` 是入住闸门（家庭/数量校验，实测上限 2 大人+1 小孩），
+`FacilityBed.IsNoNpcInHouse`（`member_list.Count==0`）决定是否进 `HousingHelper.empty_bed_list` 分配池，
+且居民实际选床不走该池（实测无房者被其他床接走）。因此三件套：
+
+1. **Harmony 补丁 `OnNpcEnter`**（仅 stuff_id==101007）：容量内强制收下，⚠ prefix 里必须自己
+   `member_list.Add(npc)` + `UpdateSprite()`（原版簿记被跳过，漏记会导致名册恒 0——0.3.0 教训）。
+2. **Harmony 补丁 `IsNoNpcInHouse`**（仅 101007）：改为 `count < effect_value`（未满员=可分配）。
+3. **JianZhuComponent 每 3s 兜底**：未满员的大通铺放回 empty_bed_list 池尾（优先）；
+   并把**无房成年居民**（`house_facility_guid==0`，`npc_type>=0` 且非贵族 61/领主 70，
+   排除婴儿/学生/旅客/流民等负数类型）直接 `npc.EnterHouseFacility(bed, false)` 收进人数最少的床。
+
+实机验证（最新档 `2026-09-12_14_*`）：无房 NPC 依次入住，名册 0→10 正常增长（日志 41 次 OnNpcEnter）。
+容量读取 `facility_stuff_info.effect_value_int`（=10），改 Defs 即可调床位数。
+
+## 读档（远程验证）
+
+游戏启动 → 轮询 `GET /api/editor/state` → **读 mtime 最新的存档目录**（玩过程中会不断生成自动档，
+`ls -t` 取第一个目录名）→ `POST /api/editor/debug/load {"dir":"<目录名>"}` → 等 `inSave:true && saveLoads+1`。
+
+## 建造注意
 
 - `--no-restore` 必须携带（无 NuGet 依赖；首次新项目需手动 `dotnet restore` 一次）。
 - 源文件 UTF-8 无 BOM + LF；typed interop（`D.Ins`、`ModsHelper` 等）仅用于诊断组件。

@@ -13,7 +13,7 @@ public class Plugin : BasePlugin
 {
     public const string PLUGIN_GUID = "claude.jianzhu";
     public const string PLUGIN_NAME = "JianZhu";
-    public const string PLUGIN_VERSION = "0.5.1";
+    public const string PLUGIN_VERSION = "0.5.2";
 
     internal static ManualLogSource Logger = null!;
 

@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Reflection;
 using HarmonyLib;
 
 namespace JianZhu;
@@ -44,6 +46,20 @@ internal static class BedPatches
             if (members == null || members.Count == 0) return false;
             var first = members[0];
             return first != null && first.race_id != npc.race_id;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>名册成员判定（interop == 按底层指针比较）</summary>
+    internal static bool IsMember(FacilityBed bed, Npc npc)
+    {
+        try
+        {
+            var ms = bed.member_list;
+            if (ms == null) return false;
+            for (int i = 0; i < ms.Count; i++)
+                if (ms[i] == npc) return true;
+            return false;
         }
         catch { return false; }
     }
@@ -100,6 +116,25 @@ internal static class BedPatches
         }
         catch { reason = "异常"; return false; }
     }
+}
+
+/// <summary>原版 TryClearMember 系列（夫妻分床清"非育龄成员"/清儿童/清学生等）
+/// 只从 member_list 删人、不清 NPC 侧 house_facility_guid——原版床只住一个家庭无所谓，
+/// 多人大通铺被它清一次就产生"guid 指床但名册无人"的脱钩孤儿（0.4.x 实测 15 个）。
+/// 对大通铺直接跳过这类清理；普通床照常。</summary>
+[HarmonyPatch]
+internal static class BedTryClearMemberPatch
+{
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("ReSharper", "UnusedMember.Global")]
+    static IEnumerable<MethodBase> TargetMethods()
+    {
+        foreach (var m in AccessTools.GetDeclaredMethods(typeof(FacilityBed)))
+            if (m.Name.StartsWith("TryClearMember"))
+                yield return m;
+    }
+
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("ReSharper", "UnusedMember.Global")]
+    static bool Prefix(FacilityBed __instance) => !BedPatches.IsDorm(__instance);
 }
 
 /// <summary>入住闸门：大通铺容量内强制收下，绕过家庭/数量限制。儿童(-2)与成年人

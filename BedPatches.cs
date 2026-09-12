@@ -34,6 +34,33 @@ internal static class BedPatches
         try { return bed.member_list?.Count ?? 0; }
         catch { return 0; }
     }
+
+    /// <summary>同族限制：床内已有成员时，与首成员种族不同 = 不匹配（空床无限制）</summary>
+    internal static bool RaceMismatch(FacilityBed bed, Npc npc)
+    {
+        try
+        {
+            var members = bed.member_list;
+            if (members == null || members.Count == 0) return false;
+            var first = members[0];
+            return first != null && first.race_id != npc.race_id;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>床位准入总校验（闸门与直接收容共用）：存活、非精灵/石头人、同族、未满员</summary>
+    internal static bool CanAccept(FacilityBed bed, Npc npc)
+    {
+        try
+        {
+            return npc != null
+                   && !npc.is_dead
+                   && !npc.IsSpriteOrStoneMan()
+                   && !RaceMismatch(bed, npc)
+                   && MemberCount(bed) < CapacityOf(bed);
+        }
+        catch { return false; }
+    }
 }
 
 /// <summary>入住闸门：大通铺容量内（且 npc 存活）强制收下，绕过家庭/数量限制。
@@ -47,13 +74,20 @@ internal static class BedOnNpcEnterPatch
     {
         if (!BedPatches.IsDorm(__instance)) return true; // 非大通铺走原逻辑
 
-        JianZhu.Plugin.LogInfo(
-            $"[JianZhu] OnNpcEnter: bed={__instance.guid} npc={(npc != null ? npc.npc_name : "null")} " +
-            $"count={BedPatches.MemberCount(__instance)}");
-
-        if (npc == null || npc.is_dead
-            || BedPatches.MemberCount(__instance) >= BedPatches.CapacityOf(__instance))
+        bool accept = BedPatches.CanAccept(__instance, npc);
+        if (!accept)
         {
+            // 拒绝原因日志（同族/精灵石头人/满员），方便实机排查
+            try
+            {
+                if (npc != null && !npc.is_dead && npc.IsSpriteOrStoneMan())
+                    JianZhu.Plugin.LogInfo($"[JianZhu] 拒绝精灵/石头人「{npc.npc_name}」入住大通铺");
+                else if (npc != null && BedPatches.RaceMismatch(__instance, npc))
+                    JianZhu.Plugin.LogInfo(
+                        $"[JianZhu] 同族限制：拒绝「{npc.npc_name}」(race {npc.race_id}) 入住大通铺(race {__instance.member_list[0].race_id})");
+            }
+            catch { }
+
             __result = false;
             return false;
         }

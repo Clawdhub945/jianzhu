@@ -191,9 +191,34 @@ public class JianZhuComponent : MonoBehaviour
         foreach (var bed in beds)
         {
             if (!BedPatches.IsDorm(bed)) continue;
+
+            // 自愈：把床里的精灵/石头人请出去（本次新增规则前可能已被收进来）
+            try
+            {
+                var members = bed.member_list;
+                if (members != null)
+                {
+                    for (int i = members.Count - 1; i >= 0; i--)
+                    {
+                        var m = members[i];
+                        if (m == null || m.is_dead || !m.IsSpriteOrStoneMan()) continue;
+                        Plugin.LogInfo($"[JianZhu] 请出精灵/石头人「{m.npc_name}」（大通铺不收）");
+                        m.ExitHouseFacility();
+                    }
+                }
+            }
+            catch (Exception ex) { Plugin.LogError($"[JianZhu] 清退非人类成员失败: {ex.Message}"); }
+
             int cnt = BedPatches.MemberCount(bed);
             int cap = BedPatches.CapacityOf(bed);
-            _dormStatus.Add($"{cnt}/{cap}");
+            string raceStr = "";
+            try
+            {
+                var ms = bed.member_list;
+                if (ms != null && ms.Count > 0 && ms[0] != null) raceStr = $" 种族{ms[0].race_id}";
+            }
+            catch { }
+            _dormStatus.Add($"{cnt}/{cap}{raceStr}");
             if (cnt < cap) openBeds.Add(bed);
         }
 
@@ -245,18 +270,20 @@ public class JianZhuComponent : MonoBehaviour
                 if (openBeds.Count == 0) break;
                 if (npc == null || npc.is_dead) continue;
                 if (npc.house_facility_guid != 0) continue; // 已有住房
+                if (npc.IsSpriteOrStoneMan()) continue;     // 精灵/石头人不收
                 int t = npc._npc_type;
                 if (t < 0 || t == 61 || t == 70) continue;  // 跳过 婴儿/学生/旅客/流民/贵族/领主 等
 
-                // 取人数最少的一张床（均衡入住）
+                // 取人数最少且同族的床（一张床只能住同一个种族）
                 FacilityBed? target = null;
                 int best = int.MaxValue;
                 foreach (var bed in openBeds)
                 {
+                    if (BedPatches.RaceMismatch(bed, npc)) continue;
                     int c = BedPatches.MemberCount(bed);
                     if (c < best) { best = c; target = bed; }
                 }
-                if (target == null) break;
+                if (target == null) continue; // 没有同族空位
 
                 string name = "";
                 try { name = npc.npc_name ?? ""; } catch { }
@@ -335,7 +362,7 @@ public class JianZhuComponent : MonoBehaviour
         if (!_showPanel) return;
 
         var rect = new Rect(40f, 40f, 420f, 220f);
-        GUI.Box(rect, "JianZhu 大通铺 · 状态（骨架 0.2.0）");
+        GUI.Box(rect, $"JianZhu 大通铺 · 状态（{Plugin.PLUGIN_VERSION}）");
 
         var inner = new Rect(rect.x + 12f, rect.y + 32f, rect.width - 24f, rect.height - 44f);
         GUILayout.BeginArea(inner);

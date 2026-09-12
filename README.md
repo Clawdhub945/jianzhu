@@ -76,6 +76,24 @@ python _tools/make_defs.py --deploy      # Defs → C:\TerritoryModTest\Defs
 实机验证（最新档 `2026-09-12_14_*`）：无房 NPC 依次入住，名册 0→10 正常增长（日志 41 次 OnNpcEnter）。
 容量读取 `facility_stuff_info.effect_value_int`（=10），改 Defs 即可调床位数。
 
+## 每床容量配置文件（0.6.0）
+
+`BepInEx/config/claude.jianzhu.cfg`（插件首次启动自动生成）：
+
+```ini
+[大通铺]
+
+## 修改数值即可调整游戏内大通铺最大居住小人数（每张床）。默认 10，最小 1，最大 25。
+# Setting type: Int32
+# Default value: 10
+# Acceptable value range: From 1 to 25
+最大居住小人数 = 10
+```
+
+- **游戏运行中直接改文件即可，约 1.5 秒内热生效**（服务循环每轮 Config.Reload()）
+- 范围 1-25，越界值会被钳制到边界并写回文件
+- 只对大通铺（101007）生效，原版床不受影响
+
 ## 读档（远程验证）
 
 游戏启动 → 轮询 `GET /api/editor/state` → **读 mtime 最新的存档目录**（玩过程中会不断生成自动档，

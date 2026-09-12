@@ -13,17 +13,35 @@ public class Plugin : BasePlugin
 {
     public const string PLUGIN_GUID = "claude.jianzhu";
     public const string PLUGIN_NAME = "JianZhu";
-    public const string PLUGIN_VERSION = "0.5.2";
+    public const string PLUGIN_VERSION = "0.6.0";
 
     internal static ManualLogSource Logger = null!;
 
     private HarmonyLib.Harmony? _harmony;
+    internal static BepInEx.Configuration.ConfigFile? DormConfigFile;
+    internal static BepInEx.Configuration.ConfigEntry<int>? CapacityEntry;
 
     public override void Load()
     {
         try { Console.OutputEncoding = Encoding.UTF8; } catch { }
 
         Logger = Log;
+
+        // 大通铺每床容量配置：自动生成 BepInEx/config/claude.jianzhu.cfg，
+        // 改文件后由服务循环定期 Config.Reload() 热生效，范围钳制 1-25
+        try
+        {
+            DormConfigFile = Config;
+            CapacityEntry = Config.Bind("大通铺", "最大居住小人数", 10,
+                new BepInEx.Configuration.ConfigDescription(
+                    "修改数值即可调整游戏内大通铺最大居住小人数（每张床）。默认 10，最小 1，最大 25。",
+                    new BepInEx.Configuration.AcceptableValueRange<int>(1, 25)));
+            BedPatches.CapacityEntry = CapacityEntry;
+            CapacityEntry.SettingChanged += (_, _) =>
+                LogInfo($"[JianZhu] 容量配置变更 → 每床 {CapacityEntry.Value} 人");
+            LogInfo($"[JianZhu] 容量配置: 每床 {CapacityEntry.Value} 人 (BepInEx/config/claude.jianzhu.cfg)");
+        }
+        catch (Exception ex) { LogError($"[JianZhu] 容量配置绑定失败: {ex}"); }
 
         // 失焦时 Unity Update 不跑 → 快捷键/主线程任务全部饿死，与 ChestEditor 同款处理
         try { Application.runInBackground = true; }

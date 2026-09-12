@@ -81,6 +81,8 @@ public class JianZhuComponent : MonoBehaviour
             if (Time.time >= _nextPoolAt)
             {
                 _nextPoolAt = Time.time + 1.5f;
+                // cfg 热生效：改 BepInEx/config/claude.jianzhu.cfg 后最多 1.5s 生效
+                try { Plugin.DormConfigFile?.Reload(); } catch { }
                 RefreshDormPool();
             }
 
@@ -545,6 +547,7 @@ public class JianZhuComponent : MonoBehaviour
         }
         GUILayout.Space(6);
         GUILayout.Label("在建造菜单「住所」分类的「大通铺」（贴图同小床）");
+        GUILayout.Label($"每床容量: {BedPatches.CapacityOf(null)} 人 (config/claude.jianzhu.cfg)");
         GUILayout.Label(_dormStatus.Count > 0
             ? "大通铺入住: " + string.Join(", ", _dormStatus)
             : "场上暂无大通铺");

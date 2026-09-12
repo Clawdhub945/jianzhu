@@ -18,16 +18,18 @@ internal static class BedPatches
     public const int DormBedId = 101007;
     private const int FallbackCapacity = 10;
 
+    /// <summary>每床容量：由 config/claude.jianzhu.cfg 的「最大居住小人数」驱动（1-25 钳制）</summary>
+    internal static BepInEx.Configuration.ConfigEntry<int>? CapacityEntry;
+
     internal static bool IsDorm(FacilityBed bed) => bed != null && bed.stuff_id == DormBedId;
 
     internal static int CapacityOf(FacilityBed bed)
     {
         try
         {
-            var info = bed.facility_stuff_info;
-            if (info != null && info.effect_value_int > 0) return info.effect_value_int;
+            if (CapacityEntry != null) return Math.Clamp(CapacityEntry.Value, 1, 25);
         }
-        catch { /* 字段访问失败按兜底容量 */ }
+        catch { }
         return FallbackCapacity;
     }
 

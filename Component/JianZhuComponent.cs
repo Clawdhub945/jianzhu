@@ -277,16 +277,16 @@ public class JianZhuComponent : MonoBehaviour
                 if (t == -3 || t == -1 || t == -5 || t == -10 || t == -12 || t == -13
                     || t == 61 || t == 70) continue;
 
-                // 取人数最少且同族的床（一张床只能住同一个种族）
+                // 取人数最少且准入的床（同族、未满员、未设旅客专属——CanAccept 统一校验）
                 FacilityBed? target = null;
                 int best = int.MaxValue;
                 foreach (var bed in openBeds)
                 {
-                    if (BedPatches.RaceMismatch(bed, npc)) continue;
+                    if (!BedPatches.CanAccept(bed, npc, out _)) continue;
                     int c = BedPatches.MemberCount(bed);
                     if (c < best) { best = c; target = bed; }
                 }
-                if (target == null) continue; // 没有同族空位
+                if (target == null) continue; // 没有同族空位/仅剩旅客专属床
 
                 string name = "";
                 try { name = npc.npc_name ?? ""; } catch { }

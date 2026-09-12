@@ -48,18 +48,37 @@ internal static class BedPatches
         catch { return false; }
     }
 
-    /// <summary>床位准入总校验（闸门与直接收容共用）：存活、非精灵/石头人、同族、未满员</summary>
-    internal static bool CanAccept(FacilityBed bed, Npc npc)
+    internal static bool IsTraveller(Npc npc)
     {
         try
         {
-            return npc != null
-                   && !npc.is_dead
-                   && !npc.IsSpriteOrStoneMan()
-                   && !RaceMismatch(bed, npc)
-                   && MemberCount(bed) < CapacityOf(bed);
+            int t = npc._npc_type;
+            return t == -10 || t == -12 || t == -13; // 旅客/旅客刺客/旅客赏金猎人
         }
         catch { return false; }
+    }
+
+    /// <summary>床位准入总校验（闸门与直接收容共用）：
+    /// 存活、非精灵/石头人、同族、未满员、旅客专属分流
+    /// （未设"仅限旅客"的床不收旅客；设了的床只收旅客、不收居民）</summary>
+    internal static bool CanAccept(FacilityBed bed, Npc npc, out string reason)
+    {
+        reason = "";
+        try
+        {
+            if (npc == null || npc.is_dead) { reason = "死亡"; return false; }
+            if (npc.IsSpriteOrStoneMan()) { reason = "精灵/石头人"; return false; }
+            if (RaceMismatch(bed, npc)) { reason = "异族"; return false; }
+            if (MemberCount(bed) >= CapacityOf(bed)) { reason = "满员"; return false; }
+            bool travellerOnly = bed.IsForTravellerOnly;
+            if (travellerOnly != IsTraveller(npc))
+            {
+                reason = travellerOnly ? "旅客专属床不收居民" : "非旅客专属床不收旅客";
+                return false;
+            }
+            return true;
+        }
+        catch { reason = "异常"; return false; }
     }
 }
 
@@ -74,20 +93,14 @@ internal static class BedOnNpcEnterPatch
     {
         if (!BedPatches.IsDorm(__instance)) return true; // 非大通铺走原逻辑
 
-        bool accept = BedPatches.CanAccept(__instance, npc);
-        if (!accept)
+        if (!BedPatches.CanAccept(__instance, npc, out string reason))
         {
-            // 拒绝原因日志（同族/精灵石头人/满员），方便实机排查
             try
             {
-                if (npc != null && !npc.is_dead && npc.IsSpriteOrStoneMan())
-                    JianZhu.Plugin.LogInfo($"[JianZhu] 拒绝精灵/石头人「{npc.npc_name}」入住大通铺");
-                else if (npc != null && BedPatches.RaceMismatch(__instance, npc))
-                    JianZhu.Plugin.LogInfo(
-                        $"[JianZhu] 同族限制：拒绝「{npc.npc_name}」(race {npc.race_id}) 入住大通铺(race {__instance.member_list[0].race_id})");
+                string name = npc != null ? npc.npc_name : "null";
+                JianZhu.Plugin.LogInfo($"[JianZhu] 拒绝「{name}」入住大通铺: {reason}");
             }
             catch { }
-
             __result = false;
             return false;
         }

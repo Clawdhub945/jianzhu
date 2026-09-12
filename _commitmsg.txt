@@ -1,1 +1,1 @@
-feat: cfg 新增猪人/蚁人/鼠人睡床开关（默认禁止，在床自动清退，0.6.1）
+chore: 工坊包组装（About/Preview/Defs/Assemblies）+ 打包脚本 + 上传说明；0.6.2 性能与补丁覆盖修复

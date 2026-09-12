@@ -1,0 +1,25 @@
+[
+  {
+    "stuff_id": 101007,
+    "price": 0,
+    "can_carry_one_by_one_anytime": 0,
+    "incineration_result": 0,
+    "spoilage_year_limit": 0,
+    "disable": 0,
+    "can_pick_up_by_ant": 0,
+    "ignore_in_summary": 0,
+    "sort_index": 0,
+    "stuff_type": 1,
+    "stuff_sub_type": 101,
+    "effect_value": 10.0,
+    "remark": "可睡人数",
+    "prefab": "bed",
+    "stuff_img": "ui_101001",
+    "stuff_img_on_map": "bed_0",
+    "weight": 1.0,
+    "reward_count_once": 0,
+    "op_increase_step": 1,
+    "stuff_namezh-CN": "大通铺",
+    "desczh-CN": "可供十名居民同时睡觉的通铺。"
+  }
+]

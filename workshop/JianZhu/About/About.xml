@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ModMetaData>
+  <name>大通铺（多人床位·可配置容量）</name>
+  <authors>
+    <li>Clawdhub945</li>
+  </authors>
+  <description>
+    新增建筑「大通铺」：占位 1x2，一张床可住多个小人（默认 10 人，1-25 可配置），贴图与原版小床一致。
+
+    ● 特性
+    - 建造菜单「住所」分类可直接建造，造价与原版小床相同（木 x10）
+    - 每床最大居住人数可在配置文件中调整（1-25），游戏运行中修改即时生效
+    - 儿童可以与成年人同住；士兵（兵营绑床）正常入住
+    - 同族同床：一张床只住一个种族，自动紧凑分配，不会出现 1-2 人占坑锁床
+    - 支持「仅限旅客」床位：标记后自动接待外村旅客住店
+    - 猪人/蚁人/鼠人默认禁止入住（配置文件可改为允许）
+
+    ● 配置文件
+    BepInEx/config/claude.jianzhu.cfg
+    - 最大居住小人数：1-25，游戏中改完约 1.5 秒生效
+    - 允许猪人蚁人鼠人睡床：默认 false
+
+    ● 使用说明
+    - 需要 BepInEx 6 环境
+    - 与原版小床共存，不影响原版住房分配
+    - 如需卸载 mod，请先拆除领地内所有大通铺，否则存档中的床会失效
+    - 多人联机未测试
+  </description>
+   <url>https://github.com/Clawdhub945/jianzhu</url>
+  <packageId>clawdhub945.datongpu</packageId>
+  <supportedVersions>
+    <li>1.0</li>
+  </supportedVersions>
+  <modVersion>0.6.2</modVersion>
+</ModMetaData>

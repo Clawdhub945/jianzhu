@@ -131,19 +131,22 @@ internal static class BedPatches
     }
 }
 
-/// <summary>原版 TryClearMember 系列（夫妻分床清"非育龄成员"/清儿童/清学生等）
-/// 只从 member_list 删人、不清 NPC 侧 house_facility_guid——原版床只住一个家庭无所谓，
-/// 多人大通铺被它清一次就产生"guid 指床但名册无人"的脱钩孤儿（0.4.x 实测 15 个）。
-/// 对大通铺直接跳过这类清理；普通床照常。</summary>
+/// <summary>原版 TryClear* 系列（夫妻分床清"非育龄成员" TryClearNotCouplesChildbearingAge、
+/// 清儿童/清学生、TryClearMember 等）只从 member_list 删人、不清 NPC 侧 house_facility_guid
+/// ——原版床只住一个家庭无所谓，多人大通铺被它清一次就产生"guid 指床但名册无人"的
+/// 脱钩孤儿（0.4.x 实测 15 个）。对大通铺跳过全部 TryClear* 清理；普通床照常。</summary>
 [HarmonyPatch]
 internal static class BedTryClearMemberPatch
 {
     [System.Diagnostics.CodeAnalysis.SuppressMessage("ReSharper", "UnusedMember.Global")]
     static IEnumerable<MethodBase> TargetMethods()
     {
+        var found = new List<MethodBase>();
         foreach (var m in AccessTools.GetDeclaredMethods(typeof(FacilityBed)))
-            if (m.Name.StartsWith("TryClearMember"))
-                yield return m;
+            if (m.Name.StartsWith("TryClear"))
+                found.Add(m);
+        JianZhu.Plugin.LogInfo($"[JianZhu] TryClear* 清理补丁命中 {found.Count} 个方法（大通铺跳过）");
+        return found;
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("ReSharper", "UnusedMember.Global")]

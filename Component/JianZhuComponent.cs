@@ -304,8 +304,14 @@ public class JianZhuComponent : MonoBehaviour
         }
         catch (Exception ex) { Plugin.LogError($"[JianZhu] 空床池维护失败: {ex.Message}"); }
 
+        // ② NPC 扫描（单次共用）：仅在有未满员床时执行——全员满员的稳态零开销，
+        //    避免 FindObjectsOfType 在大地图（2000+ NPC）上每 1.5s 一次的卡顿（工坊性能）
+        bool hasOpen = openBeds.Count > 0 || openTravellerBeds.Count > 0;
+        Npc[]? npcsAll = hasOpen ? UnityEngine.Object.FindObjectsOfType<Npc>() : null;
+
         // ②a 脱钩修复：guid 指向大通铺但名册里没有自己（TryClearMember 清人不清 guid 的残留）
         //    → 清 guid 重新变无房，当轮下方收容循环立刻重新分床
+        if (npcsAll != null)
         try
         {
             var dormByGuid = new Dictionary<int, FacilityBed>();
@@ -316,32 +322,26 @@ public class JianZhuComponent : MonoBehaviour
             }
             if (dormByGuid.Count > 0)
             {
-                var npcsAll = UnityEngine.Object.FindObjectsOfType<Npc>();
-                if (npcsAll != null)
+                foreach (var npc in npcsAll)
                 {
-                    foreach (var npc in npcsAll)
-                    {
-                        if (npc == null || npc.is_dead) continue;
-                        int g = npc.house_facility_guid;
-                        if (g == 0 || !dormByGuid.TryGetValue(g, out var bedOwner)) continue;
-                        if (BedPatches.IsMember(bedOwner, npc)) continue;
-                        string nm = "";
-                        try { nm = npc.npc_name ?? ""; } catch { }
-                        Plugin.LogInfo($"[JianZhu] 脱钩修复：「{nm}」guid→bed{g} 但名册无此人，清 guid 重新分配");
-                        npc.house_facility_guid = 0;
-                    }
+                    if (npc == null || npc.is_dead) continue;
+                    int g = npc.house_facility_guid;
+                    if (g == 0 || !dormByGuid.TryGetValue(g, out var bedOwner)) continue;
+                    if (BedPatches.IsMember(bedOwner, npc)) continue;
+                    string nm = "";
+                    try { nm = npc.npc_name ?? ""; } catch { }
+                    Plugin.LogInfo($"[JianZhu] 脱钩修复：「{nm}」guid→bed{g} 但名册无此人，清 guid 重新分配");
+                    npc.house_facility_guid = 0;
                 }
             }
         }
         catch (Exception ex) { Plugin.LogError($"[JianZhu] 脱钩修复失败: {ex.Message}"); }
 
         // ② 直接收容无房成年居民（没有普通空位时跳过居民段，但旅客直配/腾床仍要跑）
-        if (openBeds.Count > 0)
+        if (openBeds.Count > 0 && npcsAll != null)
         try
         {
-            var npcs = UnityEngine.Object.FindObjectsOfType<Npc>();
-            if (npcs == null) return;
-            foreach (var npc in npcs)
+            foreach (var npc in npcsAll)
             {
                 if (openBeds.Count == 0) break;
                 if (npc == null || npc.is_dead) continue;
@@ -432,38 +432,34 @@ public class JianZhuComponent : MonoBehaviour
         // ③ 旅客专属床直配：游戏只给旅店（接待台范围）分旅客，手工标记的床不在
         //    TravellerHelper.empty_bed_list 里永远不会来人——这里把没有床的旅客
         //    直接送进未满员的旅客专属大通铺（EnterHouseFacility 标准入口）。
-        if (openTravellerBeds.Count > 0)
+        if (openTravellerBeds.Count > 0 && npcsAll != null)
         {
             try
             {
-                var npcs = UnityEngine.Object.FindObjectsOfType<Npc>();
-                if (npcs != null)
+                foreach (var npc in npcsAll)
                 {
-                    foreach (var npc in npcs)
+                    if (openTravellerBeds.Count == 0) break;
+                    if (npc == null || npc.is_dead) continue;
+                    if (npc.house_facility_guid != 0) continue; // 已有床位
+                    if (!BedPatches.IsTraveller(npc)) continue;
+
+                    FacilityBed? target = null;
+                    int best = int.MaxValue;
+                    foreach (var bed in openTravellerBeds)
                     {
-                        if (openTravellerBeds.Count == 0) break;
-                        if (npc == null || npc.is_dead) continue;
-                        if (npc.house_facility_guid != 0) continue; // 已有床位
-                        if (!BedPatches.IsTraveller(npc)) continue;
-
-                        FacilityBed? target = null;
-                        int best = int.MaxValue;
-                        foreach (var bed in openTravellerBeds)
-                        {
-                            if (!BedPatches.CanAccept(bed, npc, out _)) continue;
-                            int c = BedPatches.MemberCount(bed);
-                            if (c < best) { best = c; target = bed; }
-                        }
-                        if (target == null) break;
-
-                        string name = "";
-                        try { name = npc.npc_name ?? ""; } catch { }
-                        Plugin.LogInfo($"[JianZhu] 旅客「{name}」入住旅客专属大通铺({best}/{BedPatches.CapacityOf(target)})");
-                        npc.EnterHouseFacility(target, false);
-
-                        if (BedPatches.MemberCount(target) >= BedPatches.CapacityOf(target))
-                            openTravellerBeds.Remove(target);
+                        if (!BedPatches.CanAccept(bed, npc, out _)) continue;
+                        int c = BedPatches.MemberCount(bed);
+                        if (c < best) { best = c; target = bed; }
                     }
+                    if (target == null) break;
+
+                    string name = "";
+                    try { name = npc.npc_name ?? ""; } catch { }
+                    Plugin.LogInfo($"[JianZhu] 旅客「{name}」入住旅客专属大通铺({best}/{BedPatches.CapacityOf(target)})");
+                    npc.EnterHouseFacility(target, false);
+
+                    if (BedPatches.MemberCount(target) >= BedPatches.CapacityOf(target))
+                        openTravellerBeds.Remove(target);
                 }
             }
             catch (Exception ex) { Plugin.LogError($"[JianZhu] 旅客直配失败: {ex.Message}"); }

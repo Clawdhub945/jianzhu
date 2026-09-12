@@ -13,7 +13,7 @@ public class Plugin : BasePlugin
 {
     public const string PLUGIN_GUID = "claude.jianzhu";
     public const string PLUGIN_NAME = "JianZhu";
-    public const string PLUGIN_VERSION = "0.6.0";
+    public const string PLUGIN_VERSION = "0.6.1";
 
     internal static ManualLogSource Logger = null!;
 
@@ -39,7 +39,16 @@ public class Plugin : BasePlugin
             BedPatches.CapacityEntry = CapacityEntry;
             CapacityEntry.SettingChanged += (_, _) =>
                 LogInfo($"[JianZhu] 容量配置变更 → 每床 {CapacityEntry.Value} 人");
-            LogInfo($"[JianZhu] 容量配置: 每床 {CapacityEntry.Value} 人 (BepInEx/config/claude.jianzhu.cfg)");
+
+            // 猪人(6)/蚁人(1)/鼠人(2) 睡床开关：默认禁止，cfg 改 true 允许
+            var allowSpecial = Config.Bind("大通铺", "允许猪人蚁人鼠人睡床", false,
+                new BepInEx.Configuration.ConfigDescription(
+                    "默认 false=禁止猪人/蚁人/鼠人这三个种族睡大通铺（在床上的会被请走）；改为 true 允许居住。"));
+            BedPatches.AllowPigAntRatEntry = allowSpecial;
+            allowSpecial.SettingChanged += (_, _) =>
+                LogInfo($"[JianZhu] 种族限制变更 → 猪人/蚁人/鼠人睡床 {(allowSpecial.Value ? "允许" : "禁止")}");
+
+            LogInfo($"[JianZhu] 容量配置: 每床 {CapacityEntry.Value} 人, 猪人/蚁人/鼠人睡床 {(allowSpecial.Value ? "允许" : "禁止")} (BepInEx/config/claude.jianzhu.cfg)");
         }
         catch (Exception ex) { LogError($"[JianZhu] 容量配置绑定失败: {ex}"); }
 

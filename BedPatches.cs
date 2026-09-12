@@ -21,6 +21,16 @@ internal static class BedPatches
     /// <summary>每床容量：由 config/claude.jianzhu.cfg 的「最大居住小人数」驱动（1-25 钳制）</summary>
     internal static BepInEx.Configuration.ConfigEntry<int>? CapacityEntry;
 
+    /// <summary>猪人(6)/蚁人(1)/鼠人(2) 睡床开关：默认禁止，cfg 改 true 允许</summary>
+    internal static BepInEx.Configuration.ConfigEntry<bool>? AllowPigAntRatEntry;
+    private static readonly HashSet<int> ForbiddenRaces = new() { 6, 1, 2 };
+
+    internal static bool IsRaceForbidden(int raceId)
+    {
+        if (AllowPigAntRatEntry != null && AllowPigAntRatEntry.Value) return false;
+        return ForbiddenRaces.Contains(raceId);
+    }
+
     internal static bool IsDorm(FacilityBed bed) => bed != null && bed.stuff_id == DormBedId;
 
     internal static int CapacityOf(FacilityBed bed)
@@ -102,6 +112,7 @@ internal static class BedPatches
         {
             if (npc == null || npc.is_dead) { reason = "死亡"; return false; }
             if (npc.IsSpriteOrStoneMan()) { reason = "精灵/石头人"; return false; }
+            if (IsRaceForbidden(npc.race_id)) { reason = "猪人/蚁人/鼠人禁止睡床"; return false; }
             if (RaceMismatch(bed, npc)) { reason = "异族"; return false; }
             if (MemberCount(bed) >= CapacityOf(bed)) { reason = "满员"; return false; }
             bool travellerOnly = bed.IsForTravellerOnly;

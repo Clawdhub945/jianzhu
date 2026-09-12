@@ -211,6 +211,7 @@ public class JianZhuComponent : MonoBehaviour
                         var m = members[i];
                         if (m == null || m.is_dead) continue;
                         bool mismatch = m.IsSpriteOrStoneMan()
+                                        || BedPatches.IsRaceForbidden(m.race_id)
                                         || (travellerOnly
                                             ? !BedPatches.IsTraveller(m)                       // 专属床只留旅客
                                             : (!BedPatches.IsAllowedResidentType(m)            // 普通床只留白名单居民

@@ -58,9 +58,24 @@ internal static class BedPatches
         catch { return false; }
     }
 
+    /// <summary>普通居民类型白名单：儿童(-2)特批 + 游戏自己的谓词
+    /// IsPeople_NotElf_NotNoble_NotSoldier_NotPrisoner（自动排除士兵 1001-1900、
+    /// 贵族 61、领主 70、特殊 23/25/30、以及 -5 以下的全部负数特殊类型——
+    /// 旅客/商队/-11 等一并挡掉）。再显式排除婴儿(-3)/学生(-1)。</summary>
+    internal static bool IsAllowedResidentType(Npc npc)
+    {
+        try
+        {
+            int t = npc._npc_type;
+            if (t == -2) return true;             // 儿童允许与成年人同住
+            if (t == -3 || t == -1) return false; // 婴儿/学生
+            return NpcType.IsPeople_NotElf_NotNoble_NotSoldier_NotPrisoner(t);
+        }
+        catch { return false; }
+    }
+
     /// <summary>床位准入总校验（闸门与直接收容共用）：
-    /// 存活、非精灵/石头人、同族、未满员、旅客专属分流
-    /// （未设"仅限旅客"的床不收旅客；设了的床只收旅客、不收居民）</summary>
+    /// 存活、非精灵/石头人、同族、未满员、旅客专属分流、类型白名单</summary>
     internal static bool CanAccept(FacilityBed bed, Npc npc, out string reason)
     {
         reason = "";
@@ -71,10 +86,14 @@ internal static class BedPatches
             if (RaceMismatch(bed, npc)) { reason = "异族"; return false; }
             if (MemberCount(bed) >= CapacityOf(bed)) { reason = "满员"; return false; }
             bool travellerOnly = bed.IsForTravellerOnly;
-            if (travellerOnly != IsTraveller(npc))
+            if (travellerOnly)
             {
-                reason = travellerOnly ? "旅客专属床不收居民" : "非旅客专属床不收旅客";
-                return false;
+                if (!IsTraveller(npc)) { reason = "旅客专属床不收居民"; return false; }
+            }
+            else
+            {
+                if (IsTraveller(npc)) { reason = "非旅客专属床不收旅客"; return false; }
+                if (!IsAllowedResidentType(npc)) { reason = $"类型不允许(t{npc._npc_type})"; return false; }
             }
             return true;
         }

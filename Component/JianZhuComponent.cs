@@ -31,6 +31,7 @@ public class JianZhuComponent : MonoBehaviour
     // 大通铺床池兜底刷新（每 3s）：未满员的大通铺必须留在 HousingHelper.empty_bed_list 里
     private float _nextPoolAt;
     private readonly List<string> _dormStatus = new();
+    private float _nextRosterAt;
 
     // 最近一次轮询结果（面板展示用）
     private string _pluginsDir = "未获取";
@@ -192,7 +193,11 @@ public class JianZhuComponent : MonoBehaviour
         {
             if (!BedPatches.IsDorm(bed)) continue;
 
-            // 自愈：把床里的精灵/石头人请出去（本次新增规则前可能已被收进来）
+            bool travellerOnly = false;
+            try { travellerOnly = bed.IsForTravellerOnly; } catch { }
+
+            // 自愈①：清退精灵/石头人（一直有效）
+            // 自愈②：旗标错配清退——专属床里的居民、非专属床里的旅客（规则只在入口查，旗标切换后残留的人要请走）
             try
             {
                 var members = bed.member_list;
@@ -201,13 +206,19 @@ public class JianZhuComponent : MonoBehaviour
                     for (int i = members.Count - 1; i >= 0; i--)
                     {
                         var m = members[i];
-                        if (m == null || m.is_dead || !m.IsSpriteOrStoneMan()) continue;
-                        Plugin.LogInfo($"[JianZhu] 请出精灵/石头人「{m.npc_name}」（大通铺不收）");
+                        if (m == null || m.is_dead) continue;
+                        bool mismatch = m.IsSpriteOrStoneMan()
+                                        || (travellerOnly
+                                            ? !BedPatches.IsTraveller(m)                       // 专属床只留旅客
+                                            : (!BedPatches.IsAllowedResidentType(m)            // 普通床只留白名单居民
+                                               || BedPatches.IsTraveller(m)));
+                        if (!mismatch) continue;
+                        Plugin.LogInfo($"[JianZhu] 清退错配成员「{m.npc_name}」(type={m._npc_type}, 专属={travellerOnly})");
                         m.ExitHouseFacility();
                     }
                 }
             }
-            catch (Exception ex) { Plugin.LogError($"[JianZhu] 清退非人类成员失败: {ex.Message}"); }
+            catch (Exception ex) { Plugin.LogError($"[JianZhu] 清退错配成员失败: {ex.Message}"); }
 
             int cnt = BedPatches.MemberCount(bed);
             int cap = BedPatches.CapacityOf(bed);
@@ -218,8 +229,34 @@ public class JianZhuComponent : MonoBehaviour
                 if (ms != null && ms.Count > 0 && ms[0] != null) raceStr = $" 种族{ms[0].race_id}";
             }
             catch { }
-            _dormStatus.Add($"{cnt}/{cap}{raceStr}");
-            if (cnt < cap) openBeds.Add(bed);
+            _dormStatus.Add($"{cnt}/{cap}{raceStr}{(travellerOnly ? "[旅]" : "")}");
+            if (cnt < cap && !travellerOnly) openBeds.Add(bed); // 专属床不参与居民收容
+        }
+
+        // 诊断：名册 dump（30s 一次），乱入住一眼可见
+        if (Time.time >= _nextRosterAt)
+        {
+            _nextRosterAt = Time.time + 30f;
+            try
+            {
+                foreach (var bed in beds)
+                {
+                    if (!BedPatches.IsDorm(bed)) continue;
+                    var ms = bed.member_list;
+                    if (ms == null || ms.Count == 0) continue;
+                    var roster = new List<string>();
+                    for (int i = 0; i < ms.Count; i++)
+                    {
+                        var m = ms[i];
+                        if (m != null)
+                            roster.Add($"{m.npc_name}(t{m._npc_type},r{m.race_id})");
+                    }
+                    bool tOnly = false;
+                    try { tOnly = bed.IsForTravellerOnly; } catch { }
+                    Plugin.LogInfo($"[JianZhu] 名册 bed={bed.guid}{(tOnly ? "[旅]" : "")}: {string.Join(", ", roster)}");
+                }
+            }
+            catch (Exception ex) { Plugin.LogError($"[JianZhu] 名册 dump 失败: {ex.Message}"); }
         }
 
         // ① 空床池兜底 + 置尾优先
@@ -271,11 +308,7 @@ public class JianZhuComponent : MonoBehaviour
                 if (npc == null || npc.is_dead) continue;
                 if (npc.house_facility_guid != 0) continue; // 已有住房
                 if (npc.IsSpriteOrStoneMan()) continue;     // 精灵/石头人不收
-                int t = npc._npc_type;
-                // 儿童(-2)允许与成年人同住大通铺；仍排除：婴儿(-3)/学生(-1)/流民(-5)/
-                // 旅客(-10,-12,-13)/贵族(61)/领主(70)，其余负数类型一并排除
-                if (t == -3 || t == -1 || t == -5 || t == -10 || t == -12 || t == -13
-                    || t == 61 || t == 70) continue;
+                if (!BedPatches.IsAllowedResidentType(npc)) continue; // 类型白名单（儿童特批，士兵/旅客/-11 等排除）
 
                 // 取人数最少且准入的床（同族、未满员、未设旅客专属——CanAccept 统一校验）
                 FacilityBed? target = null;
